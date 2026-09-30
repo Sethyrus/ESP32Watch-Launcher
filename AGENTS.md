@@ -9,7 +9,9 @@
 - Shared board services (`imu_service.h`, `watch_buttons.h`, `watch_launcher.h`) come from `watch_board` in https://github.com/Sethyrus/ESP32Watch-core, pinned by tag in `main/idf_component.yml`. Hardware docs live in that repo's `docs/`.
 - Keep `main` small. Add new `main` sources in `main/CMakeLists.txt`, or create ESP-IDF components for reusable code.
 - Durable project config lives in `sdkconfig.defaults`, `partitions.csv`, component manifests and `dependencies.lock`. `sdkconfig`, `build/`, and `managed_components/` are generated/local. `.env` is local (template in `.env.example`).
-- `partitions.csv` is the shared layout for all app repos: same offsets everywhere, and each app's `partitions.csv` is a copy of it. Changing offsets or slots means updating it here, every app copy, `slot_of` in `flash_all.sh` and the README table.
+- `partitions.csv` is the shared layout for all app repos: same offsets everywhere, and each app's `partitions.csv` is a copy of it. Changing offsets or slots means updating it here, every app copy, `apps.conf` and the README table. `flash_all.sh` warns when an app copy differs.
+- `apps.conf` lists the apps `flash_all.sh` builds and flashes (name, slot, default repo dir; `<NAME>_DIR` in `.env` overrides). Adding an app = a slot + a line there; the app-side checklist lives in the template README.
+- NVS is shared with every app: init it with `watch_nvs_init()` and only use the `launcher` namespace.
 - Doom owns its WAD choice (`wad/` + `CONFIG_DOOM_EMBED_WAD` in its repo). `flash_all.sh` only flashes Doom's `build/storage.bin` when that build produced it; do not add WAD settings here.
 
 ## Commands

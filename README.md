@@ -62,22 +62,22 @@ idf.py set-target esp32s3   # solo la primera vez
 ./flash_all.sh
 ```
 
-`flash_all.sh` compila el launcher y cada app, y graba bootloader, tabla, `otadata` en blanco, launcher, las tres apps y, si Doom lo embebe, la imagen FAT de su WAD. Todo en una sola pasada de esptool. Los logs de compilacion quedan en `build/flash_all_<app>.log`.
+`flash_all.sh` compila el launcher y cada app de `apps.conf`, y graba bootloader, tabla, `otadata` en blanco, launcher, las tres apps y, si Doom lo embebe, la imagen FAT de su WAD. Todo en una sola pasada de esptool. Los logs de compilacion quedan en `build/flash_all_<app>.log`.
 
 | Uso | Que hace |
 | --- | --- |
 | `./flash_all.sh` | Compila y graba todo |
-| `./flash_all.sh fluid` | Compila y regraba solo esa app (`maze`, `doom`, `fluid` o `launcher`), sin tocar las demas |
+| `./flash_all.sh fluid` | Compila y regraba solo esa app (un nombre de `apps.conf` o `launcher`), sin tocar las demas |
 | `./flash_all.sh --no-build` | Graba lo ya compilado en cada `build/` |
 
-Si falta el repo de una app, o no compila, `flash_all.sh` (modo completo) deja su slot vacio y el launcher no lo muestra. La regrabacion de una sola app supone que el reloj ya tiene esta tabla (un `./flash_all.sh` completo previo).
+Si falta el repo de una app, o no compila, `flash_all.sh` (modo completo) deja su slot vacio y el launcher no lo muestra. La regrabacion de una sola app supone que el reloj ya tiene esta tabla (un `./flash_all.sh` completo previo). Si el `partitions.csv` de una app no coincide con el de aqui, el script avisa (la grabacion sigue: el reloj usa la tabla del launcher, pero la app en standalone no).
 
 ### `.env`
 
 | Variable | Defecto | Uso |
 | --- | --- | --- |
 | `WATCH_PORT` | vacio (autodetectar) | Puerto serie, p. ej. `/dev/tty.usbmodem1101` |
-| `MAZE_DIR`, `DOOM_DIR`, `FLUID_DIR` | `../ESP32Watch-<App>` | Repos de las apps, relativos a este o absolutos |
+| `<APP>_DIR` (`MAZE_DIR`, `DOOM_DIR`...) | el de `apps.conf` | Repo de cada app, relativo a este o absoluto |
 
 ### WAD de Doom
 
@@ -85,10 +85,12 @@ Lo decide Doom, no el launcher: si su build lo embebe (WAD en `ESP32Watch-Doom/w
 
 ## Anadir una app nueva
 
-1. En la app: dependencia `watch_board` >= v0.2.0, `watch_launcher_boot_once()` al principio de `app_main`, una opcion "Salir" (`watch_launcher_exit()`) visible solo si `watch_launcher_is_available()`, y `partitions.csv` copiado de este repo.
-2. Aqui: un slot `ota_3` en las dos tablas (en el hueco libre, alineado a 64 KB) y la app en `slot_of`/`dir_of` de `flash_all.sh` (y su `*_DIR` en `.env.example`).
+El checklist de la app (arranque, "Salir", NVS, tabla) esta en el README de [ESP32Watch-template](https://github.com/Sethyrus/ESP32Watch-template#crear-una-app-nueva-desde-esta-plantilla). Aqui solo:
 
-El launcher la muestra sola: lista todo slot con una imagen valida.
+1. Un slot libre en `partitions.csv` (`ota_3`...), alineado a 64 KB. Hoy no queda hueco: hay que redisenar la tabla (encoger `storage` o pasar a 32 MB) y copiarla a cada app.
+2. Una linea en `apps.conf`: nombre, slot y repo.
+
+El launcher la muestra sola: lista todo slot con una imagen valida. Su color sale de `APP_COLORS` en `components/launcher/launcher.c` (si no esta, usa uno por defecto).
 
 ## Documentacion
 

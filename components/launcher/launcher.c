@@ -13,8 +13,8 @@
 #include "esp_partition.h"
 #include "lvgl.h"
 #include "nvs.h"
-#include "nvs_flash.h"
 #include "watch_buttons.h"
+#include "watch_nvs.h"
 
 #define LAUNCHER_MAX_APPS 8
 #define LAUNCHER_BUTTON_POLL_MS 20
@@ -95,16 +95,6 @@ static void scan_apps(void)
         ESP_LOGI(TAG, "Slot %s: %s (%s)", partition->label, desc.project_name, desc.version);
     }
     esp_partition_iterator_release(it);
-}
-
-static esp_err_t init_nvs(void)
-{
-    esp_err_t err = nvs_flash_init();
-    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        err = nvs_flash_init();
-    }
-    return err;
 }
 
 // Last launched app, by slot label, so the list opens on it.
@@ -302,7 +292,7 @@ static void create_ui(void)
 
 esp_err_t launcher_start(void)
 {
-    esp_err_t err = init_nvs();
+    esp_err_t err = watch_nvs_init();
     if (err != ESP_OK) {
         ESP_LOGW(TAG, "NVS unavailable, last app not remembered: %s", esp_err_to_name(err));
     }

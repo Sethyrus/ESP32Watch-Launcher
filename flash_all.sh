@@ -1,24 +1,43 @@
 #!/usr/bin/env bash
-# Builds the launcher and the apps and flashes them into the shared layout
-# (partitions.csv). Settings come from .env (see .env.example).
+# Builds the launcher and the apps listed in apps.conf and flashes them into the
+# shared layout (partitions.csv). Settings come from .env (see .env.example).
 #
 #   ./flash_all.sh                 build everything, flash everything
-#   ./flash_all.sh fluid           build and flash only that app (maze | doom | fluid | launcher)
+#   ./flash_all.sh fluid           build and flash only that app (a name from apps.conf, or launcher)
 #   ./flash_all.sh --no-build ...  flash the existing build/ outputs
 #
 # Needs the ESP-IDF 5.5.4 environment (source "$HOME/.espressif/v5.5.4/esp-idf/export.sh").
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
+APPS_CONF="$ROOT/apps.conf"
+
+# Field N (1 name, 2 slot, 3 default dir) of an app in apps.conf.
+conf_field() {
+    awk -v name="$1" -v col="$2" '
+        /^[[:space:]]*(#|$)/ { next }
+        $1 == name { print $col; exit }
+    ' "$APPS_CONF"
+}
+app_names() {
+    awk '/^[[:space:]]*(#|$)/ { next } { print $1 }' "$APPS_CONF"
+}
 
 BUILD=1
 TARGET=all
 for arg in "$@"; do
     case "$arg" in
         --no-build) BUILD=0 ;;
-        all | launcher | maze | doom | fluid) TARGET="$arg" ;;
+        all | launcher) TARGET="$arg" ;;
         -h | --help) sed -n '2,9p' "$0"; exit 0 ;;
-        *) echo "Unknown argument: $arg (see --help)" >&2; exit 1 ;;
+        *)
+            if [ -n "$(conf_field "$arg" 1)" ]; then
+                TARGET="$arg"
+            else
+                echo "Unknown argument: $arg (see --help and apps.conf)" >&2
+                exit 1
+            fi
+            ;;
     esac
 done
 
@@ -29,9 +48,6 @@ if [ -f "$ROOT/.env" ]; then
     set +a
 fi
 WATCH_PORT="${WATCH_PORT:-}"
-MAZE_DIR="${MAZE_DIR:-../ESP32Watch-Maze}"
-DOOM_DIR="${DOOM_DIR:-../ESP32Watch-Doom}"
-FLUID_DIR="${FLUID_DIR:-../ESP32Watch-Fluid}"
 TABLE="$ROOT/partitions.csv"
 
 # idf.py is a shell function in some ESP-IDF activation scripts, so it is not
@@ -47,29 +63,29 @@ else
     ESPTOOL=(python -m esptool)
 fi
 
-# app name -> slot label and repo dir.
-slot_of() {
-    case "$1" in
-        maze) echo ota_0 ;;
-        doom) echo ota_1 ;;
-        fluid) echo ota_2 ;;
-    esac
-}
+# app name -> slot label and repo dir (<NAME>_DIR from .env wins over apps.conf).
+slot_of() { conf_field "$1" 2; }
+dir_var() { echo "$(echo "$1" | tr a-z A-Z)_DIR"; }
 dir_of() {
-    local dir
-    case "$1" in
-        launcher) dir="$ROOT" ;;
-        maze) dir="$MAZE_DIR" ;;
-        doom) dir="$DOOM_DIR" ;;
-        fluid) dir="$FLUID_DIR" ;;
-    esac
+    local dir var
+    if [ "$1" = launcher ]; then
+        dir="$ROOT"
+    else
+        var="$(dir_var "$1")"
+        dir="${!var:-$(conf_field "$1" 3)}"
+    fi
     case "$dir" in
         /*) echo "$dir" ;;
         *) echo "$ROOT/$dir" ;;
     esac
 }
 
-# Column 4 (offset) or 5 (size) of a partition in the chosen table.
+# Partition table without comments or blanks, to compare copies.
+table_rows() {
+    awk '/^[[:space:]]*(#|$)/ { next } { gsub(/[[:space:]]/, ""); print }' "$1"
+}
+
+# Column 4 (offset) or 5 (size) of a partition in the shared table.
 part_field() {
     awk -F, -v name="$1" -v col="$2" '
         /^[[:space:]]*#/ { next }
@@ -113,6 +129,9 @@ add_app() {
         return 1
     fi
     echo "   $name -> $slot @ $offset ($bytes bytes)"
+    if [ "$(table_rows "$(dir_of "$name")/partitions.csv" 2>/dev/null)" != "$(table_rows "$TABLE")" ]; then
+        echo "   WARNING: $name/partitions.csv differs from the launcher's; copy it from here" >&2
+    fi
     add "$offset" "$bin"
 }
 
@@ -141,12 +160,12 @@ if [ "$TARGET" = all ] || [ "$TARGET" = launcher ]; then
     add "$(part_field factory 4)" "$(app_bin launcher)"
 fi
 
-for name in maze doom fluid; do
+for name in $(app_names); do
     [ "$TARGET" = all ] || [ "$TARGET" = "$name" ] || continue
     dir="$(dir_of "$name")"
     if [ ! -d "$dir" ]; then
         [ "$TARGET" = all ] && add_blank_slot "$name" && continue
-        echo "$name: $dir not found (set $(echo "$name" | tr a-z A-Z)_DIR in .env)" >&2
+        echo "$name: $dir not found (set $(dir_var "$name") in .env)" >&2
         exit 1
     fi
     if ! build "$name" || ! add_app "$name"; then
