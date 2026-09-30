@@ -15,6 +15,10 @@ static struct {
     lv_obj_t *chips;
     lv_obj_t *stopwatch_chip;
     lv_obj_t *stopwatch_text;
+    lv_obj_t *timer_chip;
+    lv_obj_t *timer_text;
+    lv_obj_t *alarm_chip;
+    lv_obj_t *alarm_text;
 } s_face;
 
 static void open_apps(lv_event_t *e)
@@ -109,6 +113,8 @@ static void face_create(lv_obj_t *root)
     lv_obj_set_flex_flow(s_face.chips, LV_FLEX_FLOW_ROW);
     lv_obj_set_style_pad_column(s_face.chips, 12, 0);
     lv_obj_set_style_margin_top(s_face.chips, 24, 0);
+    s_face.alarm_chip = chip(s_face.chips, OS_ICON_BELL, OS_ACCENT, &s_face.alarm_text);
+    s_face.timer_chip = chip(s_face.chips, OS_ICON_HOURGLASS, OS_ACCENT, &s_face.timer_text);
     s_face.stopwatch_chip = chip(s_face.chips, OS_ICON_STOPWATCH, OS_ACCENT, &s_face.stopwatch_text);
 
     lv_obj_t *grow2 = lv_obj_create(col);
@@ -164,6 +170,24 @@ static void face_tick(void)
         lv_obj_remove_flag(s_face.stopwatch_chip, LV_OBJ_FLAG_HIDDEN);
     } else {
         lv_obj_add_flag(s_face.stopwatch_chip, LV_OBJ_FLAG_HIDDEN);
+    }
+
+    if (os_timer_state() != OS_TIMER_IDLE) {
+        char text[16];
+        format_elapsed(text, sizeof(text), (os_timer_remaining_ms() + 999) / 1000 * 1000);
+        lv_label_set_text(s_face.timer_text, text);
+        lv_obj_remove_flag(s_face.timer_chip, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_add_flag(s_face.timer_chip, LV_OBJ_FLAG_HIDDEN);
+    }
+
+    int hour;
+    int minute;
+    if (os_alarm_next(&hour, &minute)) {
+        lv_label_set_text_fmt(s_face.alarm_text, "%02d:%02d", hour, minute);
+        lv_obj_remove_flag(s_face.alarm_chip, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_add_flag(s_face.alarm_chip, LV_OBJ_FLAG_HIDDEN);
     }
 }
 

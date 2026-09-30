@@ -96,6 +96,12 @@ lv_obj_t *os_hint(lv_obj_t *root, const char *text);
 // Round icon button; diameter px, icon font 24 or 32. Focus ring included.
 lv_obj_t *os_round_button(lv_obj_t *parent, int diameter, const char *icon, const lv_font_t *font,
                           lv_event_cb_t on_click, void *user);
+// Touch roller (3 rows) styled for the OS; options are "\n"-separated.
+lv_obj_t *os_roller(lv_obj_t *parent, const char *options, int selected, int width);
+// Fills buf with "from\n...\nto" as two-digit numbers.
+char *os_range_options(char *buf, size_t size, int from, int to);
+// Caption at y plus a centred row to hold rollers; returns the row.
+lv_obj_t *os_roller_row(lv_obj_t *root, const char *caption, int y);
 // Adds the focus ring style (accent border in OS_FOCUS_STATE) to any object.
 void os_style_focus_ring(lv_obj_t *obj, int width);
 

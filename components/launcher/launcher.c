@@ -3,6 +3,7 @@
 #include "bsp/esp-bsp.h"
 #include "esp_log.h"
 #include "os_screens.h"
+#include "os_alerts.h"
 #include "os_store.h"
 #include "watch_battery.h"
 #include "watch_buttons.h"
@@ -20,6 +21,7 @@ esp_err_t launcher_start(void)
         ESP_LOGW(TAG, "NVS unavailable, settings not kept: %s", esp_err_to_name(err));
     }
     os_store_load();
+    os_alerts_load();
 
     // An app may have left the IMU or the speaker amp on across the reboot.
     watch_power_quiet_peripherals();

@@ -1,5 +1,6 @@
 #include "os.h"
 
+#include <stdio.h>
 #include <string.h>
 #include <time.h>
 
@@ -8,6 +9,8 @@
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "os_alerts.h"
+#include "os_screens.h"
 #include "os_store.h"
 #include "bsp/display.h"
 #include "watch_buttons.h"
@@ -264,6 +267,14 @@ static void system_task(void *arg)
                 on_pwr();
             }
         }
+        os_alert_t alert;
+        if (!os_alert_showing() && os_alerts_poll(&alert)) {
+            if (s_os.dimmed) {
+                dim_end(true);
+            }
+            lv_display_trigger_activity(NULL);
+            os_alert_present(&alert);
+        }
         const os_screen_t *screen = s_os.stack[s_os.depth - 1];
         if (now - last_tick >= 1000000) {
             last_tick = now;
@@ -288,7 +299,9 @@ static void system_task(void *arg)
         bsp_display_unlock();
 
         if (sleep) {
-            const watch_wake_t why = watch_power_sleep(0);
+            // Sleep only until the next timer/alarm is due (+50 ms so it is due on waking).
+            const int64_t next = os_alerts_next_in_ms();
+            const watch_wake_t why = watch_power_sleep(next < 0 ? 0 : (uint32_t)(next + 50));
             ESP_LOGI(TAG, "Woke up by %s", why == WATCH_WAKE_BOOT ? "BOOT" : why == WATCH_WAKE_PWR ? "PWR" : "timer");
             watch_boot_debouncer_init(&boot, 0, OS_BOOT_LONG_MS);
             s_os.battery_valid = false;
@@ -326,6 +339,50 @@ static void title_clock_update(void)
         os_now(&tm);
         lv_label_set_text_fmt(s_os.title_clock, "%02d:%02d", tm.tm_hour, tm.tm_min);
     }
+}
+
+lv_obj_t *os_roller(lv_obj_t *parent, const char *options, int selected, int width)
+{
+    lv_obj_t *r = lv_roller_create(parent);
+    lv_roller_set_options(r, options, LV_ROLLER_MODE_NORMAL);
+    lv_roller_set_visible_row_count(r, 3);
+    lv_roller_set_selected(r, selected, LV_ANIM_OFF);
+    lv_obj_set_width(r, width);
+    lv_obj_set_style_text_font(r, &font_barlow_semibold_22, 0);
+    lv_obj_set_style_text_color(r, lv_color_hex(OS_MUTED), 0);
+    lv_obj_set_style_bg_color(r, lv_color_hex(OS_SURFACE), 0);
+    lv_obj_set_style_border_color(r, lv_color_hex(OS_BORDER), 0);
+    lv_obj_set_style_border_width(r, 1, 0);
+    lv_obj_set_style_radius(r, 18, 0);
+    lv_obj_set_style_text_color(r, lv_color_hex(OS_TEXT), LV_PART_SELECTED);
+    lv_obj_set_style_bg_color(r, lv_color_hex(0x10302D), LV_PART_SELECTED);
+    lv_obj_set_style_bg_opa(r, LV_OPA_COVER, LV_PART_SELECTED);
+    return r;
+}
+
+char *os_range_options(char *buf, size_t size, int from, int to)
+{
+    size_t n = 0;
+    buf[0] = '\0';
+    for (int v = from; v <= to && n < size; v++) {
+        n += snprintf(buf + n, size - n, v == from ? "%02d" : "\n%02d", v);
+    }
+    return buf;
+}
+
+lv_obj_t *os_roller_row(lv_obj_t *root, const char *caption, int y)
+{
+    lv_obj_t *label = os_label(root, &font_barlow_16, OS_MUTED, caption);
+    lv_obj_set_style_text_letter_space(label, 2, 0);
+    lv_obj_align(label, LV_ALIGN_TOP_MID, 0, y);
+    lv_obj_t *r = lv_obj_create(root);
+    lv_obj_remove_style_all(r);
+    lv_obj_set_size(r, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_align(r, LV_ALIGN_TOP_MID, 0, y + 24);
+    lv_obj_set_flex_flow(r, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(r, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_column(r, 8, 0);
+    return r;
 }
 
 lv_obj_t *os_title(lv_obj_t *root, const char *title)

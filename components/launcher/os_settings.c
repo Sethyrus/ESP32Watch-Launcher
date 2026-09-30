@@ -201,50 +201,6 @@ static struct {
     lv_obj_t *year;
 } s_time;
 
-static lv_obj_t *roller(lv_obj_t *parent, const char *options, int selected, int width)
-{
-    lv_obj_t *r = lv_roller_create(parent);
-    lv_roller_set_options(r, options, LV_ROLLER_MODE_NORMAL);
-    lv_roller_set_visible_row_count(r, 3);
-    lv_roller_set_selected(r, selected, LV_ANIM_OFF);
-    lv_obj_set_width(r, width);
-    lv_obj_set_style_text_font(r, &font_barlow_semibold_22, 0);
-    lv_obj_set_style_text_color(r, lv_color_hex(OS_MUTED), 0);
-    lv_obj_set_style_bg_color(r, lv_color_hex(OS_SURFACE), 0);
-    lv_obj_set_style_border_color(r, lv_color_hex(OS_BORDER), 0);
-    lv_obj_set_style_border_width(r, 1, 0);
-    lv_obj_set_style_radius(r, 18, 0);
-    lv_obj_set_style_text_color(r, lv_color_hex(OS_TEXT), LV_PART_SELECTED);
-    lv_obj_set_style_bg_color(r, lv_color_hex(0x10302D), LV_PART_SELECTED);
-    lv_obj_set_style_bg_opa(r, LV_OPA_COVER, LV_PART_SELECTED);
-    return r;
-}
-
-static char *range_options(char *buf, size_t size, int from, int to)
-{
-    size_t n = 0;
-    buf[0] = '\0';
-    for (int v = from; v <= to && n < size; v++) {
-        n += snprintf(buf + n, size - n, v == from ? "%02d" : "\n%02d", v);
-    }
-    return buf;
-}
-
-static lv_obj_t *roller_row(lv_obj_t *root, const char *caption, int y)
-{
-    lv_obj_t *label = os_label(root, &font_barlow_16, OS_MUTED, caption);
-    lv_obj_set_style_text_letter_space(label, 2, 0);
-    lv_obj_align(label, LV_ALIGN_TOP_MID, 0, y);
-    lv_obj_t *r = lv_obj_create(root);
-    lv_obj_remove_style_all(r);
-    lv_obj_set_size(r, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-    lv_obj_align(r, LV_ALIGN_TOP_MID, 0, y + 24);
-    lv_obj_set_flex_flow(r, LV_FLEX_FLOW_ROW);
-    lv_obj_set_flex_align(r, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-    lv_obj_set_style_pad_column(r, 8, 0);
-    return r;
-}
-
 static void time_save(lv_event_t *e)
 {
     struct tm tm = {0};
@@ -254,6 +210,7 @@ static void time_save(lv_event_t *e)
     tm.tm_mon = (int)lv_roller_get_selected(s_time.month);
     tm.tm_year = 2024 + (int)lv_roller_get_selected(s_time.year) - 1900;
     watch_rtc_set_datetime(&tm);
+    os_alarms_reschedule();
     os_back();
 }
 
@@ -268,20 +225,20 @@ static void time_create(lv_obj_t *root)
     os_now(&tm);
 
     os_title(root, "Hora y fecha");
-    lv_obj_t *r = roller_row(root, "HORA", 82);
-    s_time.hour = roller(r, range_options(hours, sizeof(hours), 0, 23), tm.tm_hour, 90);
+    lv_obj_t *r = os_roller_row(root, "HORA", 82);
+    s_time.hour = os_roller(r, os_range_options(hours, sizeof(hours), 0, 23), tm.tm_hour, 90);
     os_label(r, &font_title_30, OS_ACCENT, ":");
-    s_time.minute = roller(r, range_options(minutes, sizeof(minutes), 0, 59), tm.tm_min, 90);
+    s_time.minute = os_roller(r, os_range_options(minutes, sizeof(minutes), 0, 59), tm.tm_min, 90);
 
-    r = roller_row(root, "FECHA", 230);
-    s_time.day = roller(r, range_options(days, sizeof(days), 1, 31), tm.tm_mday - 1, 80);
-    s_time.month = roller(r, months, tm.tm_mon, 90);
+    r = os_roller_row(root, "FECHA", 230);
+    s_time.day = os_roller(r, os_range_options(days, sizeof(days), 1, 31), tm.tm_mday - 1, 80);
+    s_time.month = os_roller(r, months, tm.tm_mon, 90);
     size_t n = 0;
     for (int y = 2024; y <= 2033; y++) {
         n += snprintf(years + n, sizeof(years) - n, y == 2024 ? "%d" : "\n%d", y);
     }
     const int year = tm.tm_year + 1900;
-    s_time.year = roller(r, years, year >= 2024 && year <= 2033 ? year - 2024 : 0, 100);
+    s_time.year = os_roller(r, years, year >= 2024 && year <= 2033 ? year - 2024 : 0, 100);
 
     lv_obj_t *save = lv_button_create(root);
     lv_obj_remove_style_all(save);

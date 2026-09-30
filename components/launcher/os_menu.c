@@ -10,8 +10,8 @@ typedef struct {
 static const menu_item_t ITEMS[] = {
     {OS_ICON_APPS, "Apps", &os_apps_screen},
     {OS_ICON_STOPWATCH, "Cronómetro", &os_stopwatch_screen},
-    {OS_ICON_HOURGLASS, "Temporizador", NULL},
-    {OS_ICON_BELL, "Alarmas", NULL},
+    {OS_ICON_HOURGLASS, "Temporizador", &os_timer_screen},
+    {OS_ICON_BELL, "Alarmas", &os_alarms_screen},
     {OS_ICON_FLASHLIGHT, "Linterna", &os_flashlight_screen},
     {OS_ICON_SETTINGS, "Ajustes", &os_settings_screen},
 };

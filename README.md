@@ -11,7 +11,9 @@ Diseno: fondo negro (en AMOLED el negro no consume), texto blanco calido, un ace
 | Pantalla | Contenido |
 | --- | --- |
 | Esfera | Bateria por tramos, fecha, hora grande, barra de segundos, cronometro si esta en marcha y botones a Apps y Ajustes |
-| Menu | Apps, Cronometro, Temporizador y Alarmas (proximamente), Linterna y Ajustes |
+| Menu | Apps, Cronometro, Temporizador, Alarmas, Linterna y Ajustes |
+| Temporizador | Minutos y segundos con rodillos; cuenta atras con pausa y reinicio |
+| Alarmas | 4 alarmas (hora, una vez o cada dia); ON/OFF desde la lista |
 | Apps | Las apps grabadas; abrir una reinicia en ella |
 | Ajustes | Hora y fecha, brillo (5 niveles), apagado de pantalla (10/15/30/60 s), bateria, acerca de, apagar el reloj |
 
@@ -26,9 +28,11 @@ Diseno: fondo negro (en AMOLED el negro no consume), texto blanco calido, un ace
 
 Sin uso durante el tiempo de Ajustes, la pantalla se oscurece 3 s y se apaga; tocar o pulsar un boton mientras esta oscurecida solo la reactiva. Apagada, **solo la despiertan BOOT o PWR** (el tactil no, para que no se encienda sola) y vuelve a la esfera. En bateria el chip entra en light sleep; con USB conectado se queda despierto con la pantalla apagada, porque el USB-Serial-JTAG no funciona en light sleep. Si el RTC perdio la hora, arranca en "Hora y fecha".
 
+Temporizador y alarmas guardan en NVS el instante absoluto en que suenan, asi que siguen vigentes con una app abierta y con el reloj dormido: el sueno dura solo hasta la proxima (`watch_power_sleep(timeout)`), enciende la pantalla y suena (dos pitidos por el altavoz y pulsos del motor `GPIO18`, hasta 60 s; BOOT, PWR o el boton lo paran). Si vencieron hace mas de 2 min (p. ej. jugando a Doom) se muestran como "perdida", sin sonido. La esfera muestra la proxima alarma y el temporizador en marcha. Sin posponer todavia.
+
 Al arrancar apaga el IMU y el amplificador, que una app puede haber dejado encendidos (`esp_restart()` no los resetea). Ajustes y cronometro se guardan en NVS (namespace `launcher`), asi que el cronometro sigue contando mientras hay una app abierta.
 
-Codigo: `components/launcher/os_ui.c` (pila de pantallas, foco, tarea del sistema: botones, apagado, sueno), una pantalla por fichero (`os_face.c`, `os_menu.c`, `os_apps.c`, `os_settings.c`, `os_tools.c`) y `os_store.c` (NVS).
+Codigo: `components/launcher/os_ui.c` (pila de pantallas, foco, tarea del sistema: botones, apagado, sueno), una pantalla por fichero (`os_face.c`, `os_menu.c`, `os_apps.c`, `os_settings.c`, `os_tools.c`, `os_timer.c`, `os_alarms.c`) y `os_alerts.c` (modelo, NVS y sonido del temporizador y las alarmas) y `os_store.c` (NVS).
 
 ## Como funciona
 
