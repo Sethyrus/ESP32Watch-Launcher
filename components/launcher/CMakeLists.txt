@@ -4,5 +4,5 @@ idf_component_register(
          ${FONT_SRCS}
     INCLUDE_DIRS "include"
     REQUIRES watch_board lvgl
-    PRIV_REQUIRES app_update esp_driver_gpio esp_partition esp_timer nvs_flash waveshare__esp32_s3_touch_amoled_2_06
+    PRIV_REQUIRES app_update esp_partition esp_timer nvs_flash waveshare__esp32_s3_touch_amoled_2_06
 )

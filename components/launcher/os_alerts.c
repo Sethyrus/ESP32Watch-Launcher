@@ -6,7 +6,6 @@
 #include <time.h>
 
 #include "bsp/esp-bsp.h"
-#include "driver/gpio.h"
 #include "esp_codec_dev.h"
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -17,7 +16,6 @@
 #define NS "launcher"
 #define MISSED_AFTER_MS 120000 // due this long ago: not worth a sound
 #define OUTPUT_MAX_MS 60000
-#define MOTOR_GPIO GPIO_NUM_18 // from the schematic, not validated on the board
 #define BEEP_RATE 16000
 #define BEEP_HZ 1000
 #define BEEP_MS 180
@@ -258,15 +256,13 @@ static volatile bool s_out_active;
 
 static void beep_pattern(esp_codec_dev_handle_t speaker, int16_t *beep, size_t bytes)
 {
-    // Two beeps, then a pause, with a motor pulse on each beep.
+    // Two beeps, then a pause.
     for (int i = 0; i < 2 && s_out_active; i++) {
-        gpio_set_level(MOTOR_GPIO, 1);
         if (speaker != NULL) {
             esp_codec_dev_write(speaker, beep, (int)bytes);
         } else {
             vTaskDelay(pdMS_TO_TICKS(BEEP_MS));
         }
-        gpio_set_level(MOTOR_GPIO, 0);
         vTaskDelay(pdMS_TO_TICKS(120));
     }
     for (int i = 0; i < 6 && s_out_active; i++) {
@@ -285,9 +281,6 @@ static void output_task(void *arg)
             beep[i] = (int16_t)(12000.0f * edge * sinf(2.0f * (float)M_PI * BEEP_HZ * i / BEEP_RATE));
         }
     }
-    gpio_reset_pin(MOTOR_GPIO);
-    gpio_set_direction(MOTOR_GPIO, GPIO_MODE_OUTPUT);
-    gpio_set_level(MOTOR_GPIO, 0);
     esp_codec_dev_handle_t speaker = NULL;
     for (;;) {
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
@@ -314,7 +307,6 @@ static void output_task(void *arg)
         if (open) {
             esp_codec_dev_close(speaker);
         }
-        gpio_set_level(MOTOR_GPIO, 0);
         s_out_active = false;
     }
 }

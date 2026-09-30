@@ -53,7 +53,7 @@ bool os_alerts_poll(os_alert_t *out);
 // Milliseconds until the next timer/alarm is due, -1 if none.
 int64_t os_alerts_next_in_ms(void);
 
-// ---- Output (vibration motor pulses and speaker beeps, up to 60 s) ----
+// ---- Output (speaker beeps, up to 60 s) ----
 void os_alert_output_start(void);
 void os_alert_output_stop(void);
 bool os_alert_output_active(void);
