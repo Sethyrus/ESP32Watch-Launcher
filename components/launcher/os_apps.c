@@ -35,6 +35,7 @@ static const struct {
     {"Maze", 0x1F7A8C, OS_ICON_GRID3, "Laberinto con la IMU"},
     {"Doom", 0x9F1239, OS_ICON_CROSSHAIR, "doomgeneric"},
     {"Fluid", 0x1D4ED8, OS_ICON_DROPLET, "Simulación de fluido"},
+    {"Recorder", 0xB42318, OS_ICON_MIC, "Grabadora de voz"},
 };
 
 static int known_index(const char *name)

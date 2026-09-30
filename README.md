@@ -1,6 +1,6 @@
 # ESP32Watch-Launcher
 
-El "sistema" del reloj para la Waveshare **ESP32-S3-Touch-AMOLED-2.06**: esfera con la hora, menu con las funciones del reloj, ajustes y una seccion Apps desde la que se abren los demas proyectos ESP32Watch (Maze, Doom, Fluid), grabados todos a la vez, sin recompilar ni reflashear para cambiar de uno a otro.
+El "sistema" del reloj para la Waveshare **ESP32-S3-Touch-AMOLED-2.06**: esfera con la hora, menu con las funciones del reloj, ajustes y una seccion Apps desde la que se abren los demas proyectos ESP32Watch (Maze, Doom, Fluid, Recorder), grabados todos a la vez, sin recompilar ni reflashear para cambiar de uno a otro.
 
 Stack: `ESP-IDF 5.5.4` + `LVGL 9` + BSP Waveshare + [ESP32Watch-core](https://github.com/Sethyrus/ESP32Watch-core) (`watch_board` >= v0.4.0).
 
@@ -15,7 +15,7 @@ Diseno: fondo negro (en AMOLED el negro no consume), texto blanco calido, un ace
 | Temporizador | Minutos y segundos con rodillos; cuenta atras con pausa y reinicio |
 | Alarmas | 4 alarmas (hora, una vez o cada dia); ON/OFF desde la lista |
 | Apps | Las apps grabadas; abrir una reinicia en ella |
-| Ajustes | Hora y fecha, brillo (5 niveles), apagado de pantalla (10/15/30/60 s), bateria, acerca de, apagar el reloj |
+| Ajustes | Hora y fecha, brillo (5 niveles), apagado de pantalla (10/15/30/60 s), bateria, conectar al ordenador, acerca de, apagar el reloj |
 
 | Entrada | Accion |
 | --- | --- |
@@ -30,9 +30,11 @@ Sin uso durante el tiempo de Ajustes, la pantalla se oscurece 3 s y se apaga; to
 
 Temporizador y alarmas guardan en NVS el instante absoluto en que suenan, asi que siguen vigentes con una app abierta y con el reloj dormido: el sueno dura solo hasta la proxima (`watch_power_sleep(timeout)`), enciende la pantalla y suena (dos pitidos por el altavoz, hasta 60 s; la placa no tiene motor de vibracion; BOOT, PWR o el boton lo paran). Si vencieron hace mas de 2 min (p. ej. jugando a Doom) se muestran como "perdida", sin sonido. La esfera muestra la proxima alarma y el temporizador en marcha. Sin posponer todavia.
 
+**Conectar al ordenador** (Ajustes): la microSD aparece como disco USB en el ordenador (TinyUSB, clase de almacenamiento), con todo lo que tenga: grabaciones de la Recorder, partidas de Doom... El chip tiene un solo USB, que normalmente usa la consola (USB-Serial-JTAG); mientras dura, no hay consola ni grabacion de firmware por USB, y la pantalla no se apaga (dormir cortaria la conexion). Salir (boton, BOOT o PWR) reinicia el reloj para devolver el puerto a la consola: hay que expulsar el disco antes en el ordenador. Codigo en `components/launcher/os_usb.c`.
+
 Al arrancar apaga el IMU y el amplificador, que una app puede haber dejado encendidos (`esp_restart()` no los resetea). Ajustes y cronometro se guardan en NVS (namespace `launcher`), asi que el cronometro sigue contando mientras hay una app abierta.
 
-Codigo: `components/launcher/os_ui.c` (pila de pantallas, foco, tarea del sistema: botones, apagado, sueno), una pantalla por fichero (`os_face.c`, `os_menu.c`, `os_apps.c`, `os_settings.c`, `os_tools.c`, `os_timer.c`, `os_alarms.c`) y `os_alerts.c` (modelo, NVS y sonido del temporizador y las alarmas) y `os_store.c` (NVS).
+Codigo: `components/launcher/os_ui.c` (pila de pantallas, foco, tarea del sistema: botones, apagado, sueno), una pantalla por fichero (`os_face.c`, `os_menu.c`, `os_apps.c`, `os_settings.c`, `os_tools.c`, `os_timer.c`, `os_alarms.c`, `os_usb.c`) y `os_alerts.c` (modelo, NVS y sonido del temporizador y las alarmas) y `os_store.c` (NVS).
 
 ## Como funciona
 
@@ -55,6 +57,7 @@ Salir desde cada app:
 | Maze | Boton "Salir" en el menu principal |
 | Fluid | "Salir al launcher" en el menu de `PWR` (guarda antes los ajustes) |
 | Doom | Menu del juego > "Quit Game" |
+| Recorder | `PWR` en la pantalla Grabar (sin grabar) |
 
 Esas opciones solo aparecen cuando la app se ha arrancado desde el launcher. Cada app se puede seguir compilando y flasheando sola (`idf.py flash` en su repo); entonces ocupa `factory` en lugar del launcher.
 
@@ -71,7 +74,8 @@ Tabla comun, con los mismos offsets en todos los repos (`partitions.csv` de cada
 | `ota_0` | `0x1a0000` | 2 MB | Maze |
 | `ota_1` | `0x3a0000` | 2 MB | Doom |
 | `ota_2` | `0x5a0000` | 2 MB | Fluid |
-| `ota_3` a `ota_6` | `0x7a0000` a `0xda0000` | 2 MB c/u | Libres (apps futuras) |
+| `ota_3` | `0x7a0000` | 2 MB | Recorder |
+| `ota_4` a `ota_6` | `0x9a0000` a `0xda0000` | 2 MB c/u | Libres (apps futuras) |
 | `storage` | `0x1000000` | 16 MB | WAD de Doom embebido (FAT, solo lectura); sin uso si Doom lo lee de la SD |
 
 La flash es de 32 MB y esta configurada asi. Todo el codigo (launcher y apps) queda por debajo de los 16 MB porque ejecutar codigo por encima es una funcion experimental de ESP-IDF; por encima solo va `storage`, que se lee por la API de particiones (validado en placa: escritura, lectura y montaje de un FAT). Cada app ocupa hoy ~0,7 MB de sus 2 MB. Cambiar la tabla implica actualizar sus copias en cada app y en `apps.conf`.
@@ -79,13 +83,13 @@ La flash es de 32 MB y esta configurada asi. Todo el codigo (launcher y apps) qu
 ## Grabar todo
 
 ```sh
-source "$HOME/.espressif/v5.5.4/esp-idf/export.sh"
+source "$HOME/.espressif/tools/activate_idf_v5.5.4.sh"
 cp .env.example .env    # y ajustar si hace falta
 idf.py set-target esp32s3   # solo la primera vez
 ./flash_all.sh
 ```
 
-`flash_all.sh` compila el launcher y cada app de `apps.conf`, y graba bootloader, tabla, `otadata` en blanco, launcher, las tres apps y, si Doom lo embebe, la imagen FAT de su WAD. Todo en una sola pasada de esptool. Los logs de compilacion quedan en `build/flash_all_<app>.log`.
+`flash_all.sh` compila el launcher y cada app de `apps.conf`, y graba bootloader, tabla, `otadata` en blanco, launcher, las apps y, si Doom lo embebe, la imagen FAT de su WAD. Todo en una sola pasada de esptool. Los logs de compilacion quedan en `build/flash_all_<app>.log`.
 
 | Uso | Que hace |
 | --- | --- |
@@ -111,7 +115,7 @@ Lo decide Doom, no el launcher: si su build lo embebe (WAD en `ESP32Watch-Doom/w
 
 El checklist de la app (arranque, "Salir", NVS, tabla) esta en el README de [ESP32Watch-template](https://github.com/Sethyrus/ESP32Watch-template#crear-una-app-nueva-desde-esta-plantilla). Aqui solo:
 
-1. Un slot libre de `partitions.csv` (`ota_3` a `ota_6` estan vacios). Si se acaban, hay que redisenar la tabla sin pasar el codigo de los 16 MB, y copiarla a cada app.
+1. Un slot libre de `partitions.csv` (`ota_4` a `ota_6` estan vacios). Si se acaban, hay que redisenar la tabla sin pasar el codigo de los 16 MB, y copiarla a cada app.
 2. Una linea en `apps.conf`: nombre, slot y repo.
 
 El launcher la muestra sola: lista todo slot con una imagen valida. Su color, icono y descripcion salen de `KNOWN` en `components/launcher/os_apps.c` (si no esta, un color neutro, su inicial y su version).

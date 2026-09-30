@@ -59,6 +59,8 @@ LV_FONT_DECLARE(font_icons_32);
 #define OS_ICON_DROPLET "\xee\x82\xb4"
 #define OS_ICON_GRID3 "\xee\x83\xa9"
 #define OS_ICON_GAMEPAD "\xee\x83\x9f"
+#define OS_ICON_MIC "\xee\x84\x98"
+#define OS_ICON_USB "\xee\x8d\x96"
 
 // ---- Screens ----
 typedef struct {

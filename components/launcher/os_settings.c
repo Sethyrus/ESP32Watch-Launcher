@@ -1,4 +1,4 @@
-// Settings: time and date, brightness, screen timeout, battery, about, power off.
+// Settings: time and date, brightness, screen timeout, battery, USB disk, about, power off.
 #include <stdio.h>
 #include <time.h>
 
@@ -121,6 +121,12 @@ static void on_battery(lv_event_t *e)
     os_push(&os_battery_screen);
 }
 
+static void on_usb(lv_event_t *e)
+{
+    s_set.focus = os_focus_get();
+    os_push(&os_usb_screen);
+}
+
 static void on_about(lv_event_t *e)
 {
     s_set.focus = os_focus_get();
@@ -161,6 +167,10 @@ static void settings_create(lv_obj_t *root)
     row(g, "Apagar pantalla", OS_TEXT, on_timeout, &s_set.timeout, false);
     lv_label_set_text_fmt(s_set.timeout, "%d s", os_settings()->screen_timeout_s);
     row(g, "Batería", OS_TEXT, on_battery, &s_set.battery, false);
+    lv_obj_t *usb = NULL;
+    row(g, "Conectar al ordenador", OS_TEXT, on_usb, &usb, false);
+    lv_label_set_text(usb, OS_ICON_USB);
+    lv_obj_set_style_text_font(usb, &font_icons_24, 0);
     lv_obj_t *about = NULL;
     row(g, "Acerca de", OS_TEXT, on_about, &about, false);
     lv_label_set_text_fmt(about, "%d apps", os_apps_count());

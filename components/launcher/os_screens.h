@@ -11,12 +11,16 @@ extern const os_screen_t os_time_screen;
 extern const os_screen_t os_battery_screen;
 extern const os_screen_t os_about_screen;
 extern const os_screen_t os_poweroff_screen;
+extern const os_screen_t os_usb_screen;
 extern const os_screen_t os_stopwatch_screen;
 extern const os_screen_t os_flashlight_screen;
 extern const os_screen_t os_timer_screen;
 extern const os_screen_t os_alarms_screen;
 extern const os_screen_t os_alarm_edit_screen;
 extern const os_screen_t os_soon_screen;
+
+// Gives the USB port back to USB-Serial-JTAG (console, flashing) after USB mode (os_usb.c).
+void os_usb_restore_port(void);
 
 // Apps in the OTA slots (os_apps.c).
 void os_apps_scan(void);

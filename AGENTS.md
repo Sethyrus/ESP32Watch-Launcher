@@ -1,8 +1,9 @@
 # AGENTS.md
 
 ## Project Shape
-- ESP-IDF C firmware `ESP32WatchLauncher`: the watch "OS" that runs from `factory`: watch face, menu of watch features, settings, and an Apps section that boots the other ESP32Watch apps (Maze, Doom, Fluid), each flashed into its own OTA slot. `app_main()` in `main/main.c` calls `launcher_start()` in `components/launcher/`.
-- UI structure: `os_ui.c` owns the screen stack (`os_push`/`os_back`/`os_home`, screens rebuilt on every change, old one deleted async), button focus (BOOT long = next, BOOT short = click) and the system task (buttons, dim 3 s then sleep via `watch_power_sleep`, 1 s ticks). One screen per file (`os_face.c`, `os_menu.c`, `os_apps.c`, `os_settings.c`, `os_tools.c`, `os_timer.c`, `os_alarms.c`); timer/alarms model, NVS and sound in `os_alerts.c` (absolute wall-clock instants; the system task polls `os_alerts_poll` and sleeps with `watch_power_sleep(next due)`; the alert screen always sits over the face at depth 2); theme, fonts and icon glyphs in `os.h`; NVS in `os_store.c`. The system task holds the LVGL lock while it calls into screens.
+- ESP-IDF C firmware `ESP32WatchLauncher`: the watch "OS" that runs from `factory`: watch face, menu of watch features, settings, and an Apps section that boots the other ESP32Watch apps (Maze, Doom, Fluid, Recorder), each flashed into its own OTA slot. `app_main()` in `main/main.c` calls `launcher_start()` in `components/launcher/`.
+- UI structure: `os_ui.c` owns the screen stack (`os_push`/`os_back`/`os_home`, screens rebuilt on every change, old one deleted async), button focus (BOOT long = next, BOOT short = click) and the system task (buttons, dim 3 s then sleep via `watch_power_sleep`, 1 s ticks). One screen per file (`os_face.c`, `os_menu.c`, `os_apps.c`, `os_settings.c`, `os_tools.c`, `os_timer.c`, `os_alarms.c`, `os_usb.c`); timer/alarms model, NVS and sound in `os_alerts.c` (absolute wall-clock instants; the system task polls `os_alerts_poll` and sleeps with `watch_power_sleep(next due)`; the alert screen always sits over the face at depth 2); theme, fonts and icon glyphs in `os.h`; NVS in `os_store.c`. The system task holds the LVGL lock while it calls into screens.
+- USB mode (`os_usb.c`, Ajustes > Conectar al ordenador): TinyUSB mass storage (`espressif/esp_tinyusb` 2.x) over the microSD, initialised on the BSP SDMMC pins without mounting FAT locally. It takes the only USB port from USB-Serial-JTAG; leaving reboots, and `os_usb_restore_port()` (also called at boot) sets the RTC-domain PHY mux back, because a software reset keeps it on USB-OTG and the console never comes back.
 - Wake only with BOOT or PWR, never touch (the owner's choice). Keep watch features in the Menu, apart from Apps and Settings.
 - Fonts in `components/launcher/fonts/` are generated with `lv_font_conv` (Barlow, Barlow Condensed, Lucide) with only the glyphs used; add a glyph by regenerating the file.
 - Switching apps is a reboot: the launcher calls `esp_ota_set_boot_partition(slot)` + `esp_restart()`, and each app calls `watch_launcher_boot_once()` (core `watch_launcher.h`) first thing, pointing the next boot back at `factory`. Never add state that must survive a switch outside NVS/SD.
@@ -18,7 +19,7 @@
 - Doom owns its WAD choice (`wad/` + `CONFIG_DOOM_EMBED_WAD` in its repo). `flash_all.sh` only flashes Doom's `build/storage.bin` when that build produced it; do not add WAD settings here.
 
 ## Commands
-- Source ESP-IDF: `source "$HOME/.espressif/v5.5.4/esp-idf/export.sh"`.
+- Source ESP-IDF: `source "$HOME/.espressif/tools/activate_idf_v5.5.4.sh"`.
 - First setup or fresh config: `idf.py set-target esp32s3`.
 - Build/primary verification: `idf.py build`.
 - Flash launcher + all apps: `./flash_all.sh` (reads `.env`; `./flash_all.sh <app>` reflashes one app, `--no-build` skips builds). It calls `idf.py` through `$IDF_PATH` because some activation scripts define it as a shell function.

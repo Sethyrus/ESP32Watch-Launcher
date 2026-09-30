@@ -23,6 +23,9 @@ esp_err_t launcher_start(void)
     os_store_load();
     os_alerts_load();
 
+    // After USB mode, or a crash in it, the USB port may still be routed to USB-OTG.
+    os_usb_restore_port();
+
     // An app may have left the IMU or the speaker amp on across the reboot.
     watch_power_quiet_peripherals();
 

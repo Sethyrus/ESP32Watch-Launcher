@@ -4,6 +4,7 @@ dependencies:
   lvgl/lvgl:
     version: "9.3.0"
     public: true
+  espressif/esp_tinyusb: "^2.0.0" # USB mode: the microSD as a disk on the computer
   watch_board:
     git: https://github.com/Sethyrus/ESP32Watch-core.git
     path: components/watch_board
