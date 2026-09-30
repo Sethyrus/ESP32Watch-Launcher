@@ -49,9 +49,10 @@ Tabla comun, con los mismos offsets en todos los repos (`partitions.csv` de cada
 | `ota_0` | `0x1a0000` | 2 MB | Maze |
 | `ota_1` | `0x3a0000` | 2 MB | Doom |
 | `ota_2` | `0x5a0000` | 2 MB | Fluid |
-| `storage` | `0x7a0000` | ~8,4 MB | WAD de Doom embebido (FAT); sin uso si Doom lo lee de la SD |
+| `ota_3` a `ota_6` | `0x7a0000` a `0xda0000` | 2 MB c/u | Libres (apps futuras) |
+| `storage` | `0x1000000` | 16 MB | WAD de Doom embebido (FAT, solo lectura); sin uso si Doom lo lee de la SD |
 
-Cada app ocupa hoy ~0,7 MB. Si hacen falta mas slots, se redisena esta tabla (y sus copias en cada app). El chip es realmente de 32 MB (ver core `docs/GOTCHAS.md`), pero todo sigue configurado a 16 MB.
+La flash es de 32 MB y esta configurada asi. Todo el codigo (launcher y apps) queda por debajo de los 16 MB porque ejecutar codigo por encima es una funcion experimental de ESP-IDF; por encima solo va `storage`, que se lee por la API de particiones (validado en placa: escritura, lectura y montaje de un FAT). Cada app ocupa hoy ~0,7 MB de sus 2 MB. Cambiar la tabla implica actualizar sus copias en cada app y en `apps.conf`.
 
 ## Grabar todo
 
@@ -87,7 +88,7 @@ Lo decide Doom, no el launcher: si su build lo embebe (WAD en `ESP32Watch-Doom/w
 
 El checklist de la app (arranque, "Salir", NVS, tabla) esta en el README de [ESP32Watch-template](https://github.com/Sethyrus/ESP32Watch-template#crear-una-app-nueva-desde-esta-plantilla). Aqui solo:
 
-1. Un slot libre en `partitions.csv` (`ota_3`...), alineado a 64 KB. Hoy no queda hueco: hay que redisenar la tabla (encoger `storage` o pasar a 32 MB) y copiarla a cada app.
+1. Un slot libre de `partitions.csv` (`ota_3` a `ota_6` estan vacios). Si se acaban, hay que redisenar la tabla sin pasar el codigo de los 16 MB, y copiarla a cada app.
 2. Una linea en `apps.conf`: nombre, slot y repo.
 
 El launcher la muestra sola: lista todo slot con una imagen valida. Su color sale de `APP_COLORS` en `components/launcher/launcher.c` (si no esta, usa uno por defecto).

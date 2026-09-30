@@ -152,7 +152,7 @@ if [ "$TARGET" = all ] || [ "$TARGET" = launcher ]; then
     build launcher
     L="$ROOT/build"
     [ -f "$L/ota_data_initial.bin" ] || { echo "Launcher not built (run without --no-build)" >&2; exit 1; }
-    python "$IDF_PATH/components/partition_table/gen_esp32part.py" --flash-size 16MB -q \
+    python "$IDF_PATH/components/partition_table/gen_esp32part.py" --flash-size 32MB -q \
         "$TABLE" "$L/flash_all_partitions.bin"
     add 0x0 "$L/bootloader/bootloader.bin"
     add 0x8000 "$L/flash_all_partitions.bin"
@@ -191,5 +191,5 @@ PORT_ARGS=()
 echo "== Flashing"
 "${ESPTOOL[@]}" --chip esp32s3 "${PORT_ARGS[@]+"${PORT_ARGS[@]}"}" -b 921600 \
     --before default_reset --after hard_reset \
-    write_flash --flash_mode dio --flash_freq 80m --flash_size 16MB "${FLASH_ARGS[@]}"
+    write_flash --flash_mode dio --flash_freq 80m --flash_size 32MB "${FLASH_ARGS[@]}"
 echo "== Done"
