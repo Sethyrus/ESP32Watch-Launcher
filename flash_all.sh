@@ -6,6 +6,9 @@
 #   ./flash_all.sh fluid           build and flash only that app (a name from apps.conf, or launcher)
 #   ./flash_all.sh --no-build ...  flash the existing build/ outputs
 #
+# APPS="maze fluid" in .env limits a full flash to those apps (the others' slots are
+# emptied, so the launcher hides them). Naming one app flashes it regardless.
+#
 # Needs the ESP-IDF 5.5.4 environment (source "$HOME/.espressif/v5.5.4/esp-idf/export.sh").
 set -euo pipefail
 
@@ -29,7 +32,7 @@ for arg in "$@"; do
     case "$arg" in
         --no-build) BUILD=0 ;;
         all | launcher) TARGET="$arg" ;;
-        -h | --help) sed -n '2,9p' "$0"; exit 0 ;;
+        -h | --help) sed -n '2,12p' "$0"; exit 0 ;;
         *)
             if [ -n "$(conf_field "$arg" 1)" ]; then
                 TARGET="$arg"
@@ -48,6 +51,17 @@ if [ -f "$ROOT/.env" ]; then
     set +a
 fi
 WATCH_PORT="${WATCH_PORT:-}"
+# APPS in .env picks which apps of apps.conf go on the watch (space separated);
+# empty = all. Apps left out get their slot emptied on a full flash.
+APPS="${APPS:-}"
+for app in $APPS; do
+    [ -n "$(conf_field "$app" 1)" ] || { echo "APPS: '$app' is not in apps.conf" >&2; exit 1; }
+done
+selected() {
+    [ -z "$APPS" ] && return 0
+    case " $APPS " in *" $1 "*) return 0 ;; esac
+    return 1
+}
 TABLE="$ROOT/partitions.csv"
 
 # idf.py is a shell function in some ESP-IDF activation scripts, so it is not
@@ -140,7 +154,7 @@ add_blank_slot() {
     local name="$1" slot offset
     slot="$(slot_of "$name")"
     offset="$(part_field "$slot" 4)"
-    echo "   $name missing: slot $slot left empty"
+    echo "   $name $2: slot $slot left empty"
     add "$offset" "$BLANK"
 }
 
@@ -162,21 +176,25 @@ fi
 
 for name in $(app_names); do
     [ "$TARGET" = all ] || [ "$TARGET" = "$name" ] || continue
+    if [ "$TARGET" = all ] && ! selected "$name"; then
+        add_blank_slot "$name" "not in APPS"
+        continue
+    fi
     dir="$(dir_of "$name")"
     if [ ! -d "$dir" ]; then
-        [ "$TARGET" = all ] && add_blank_slot "$name" && continue
+        [ "$TARGET" = all ] && add_blank_slot "$name" "missing" && continue
         echo "$name: $dir not found (set $(dir_var "$name") in .env)" >&2
         exit 1
     fi
     if ! build "$name" || ! add_app "$name"; then
-        [ "$TARGET" = all ] && add_blank_slot "$name" && continue
+        [ "$TARGET" = all ] && add_blank_slot "$name" "failed" && continue
         exit 1
     fi
 done
 
 # Doom decides whether its WAD is embedded (wad/ + CONFIG_DOOM_EMBED_WAD); its build
 # only leaves build/storage.bin when it is.
-if [ "$TARGET" = all ] || [ "$TARGET" = doom ]; then
+if { [ "$TARGET" = all ] && selected doom; } || [ "$TARGET" = doom ]; then
     wad_image="$(dir_of doom)/build/storage.bin"
     if [ -f "$wad_image" ]; then
         echo "   Doom WAD image -> storage @ $(part_field storage 4)"

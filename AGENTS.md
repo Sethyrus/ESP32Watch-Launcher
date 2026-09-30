@@ -1,16 +1,19 @@
 # AGENTS.md
 
 ## Project Shape
-- ESP-IDF C firmware `ESP32WatchLauncher`: the boot launcher that runs from `factory` and boots the other ESP32Watch apps (Maze, Doom, Fluid), each flashed into its own OTA slot. `app_main()` in `main/main.c` calls `launcher_start()` in `components/launcher/`.
+- ESP-IDF C firmware `ESP32WatchLauncher`: the watch "OS" that runs from `factory`: watch face, menu of watch features, settings, and an Apps section that boots the other ESP32Watch apps (Maze, Doom, Fluid), each flashed into its own OTA slot. `app_main()` in `main/main.c` calls `launcher_start()` in `components/launcher/`.
+- UI structure: `os_ui.c` owns the screen stack (`os_push`/`os_back`/`os_home`, screens rebuilt on every change, old one deleted async), button focus (BOOT long = next, BOOT short = click) and the system task (buttons, dim 3 s then sleep via `watch_power_sleep`, 1 s ticks). One screen per file (`os_face.c`, `os_menu.c`, `os_apps.c`, `os_settings.c`, `os_tools.c`); theme, fonts and icon glyphs in `os.h`; NVS in `os_store.c`. The system task holds the LVGL lock while it calls into screens.
+- Wake only with BOOT or PWR, never touch (the owner's choice). Keep watch features in the Menu, apart from Apps and Settings.
+- Fonts in `components/launcher/fonts/` are generated with `lv_font_conv` (Barlow, Barlow Condensed, Lucide) with only the glyphs used; add a glyph by regenerating the file.
 - Switching apps is a reboot: the launcher calls `esp_ota_set_boot_partition(slot)` + `esp_restart()`, and each app calls `watch_launcher_boot_once()` (core `watch_launcher.h`) first thing, pointing the next boot back at `factory`. Never add state that must survive a switch outside NVS/SD.
-- The launcher lists every non-factory app slot with a valid image (`esp_ota_get_partition_description`); names come from `project_name` minus the `ESP32Watch` prefix. Colors per app live in `APP_COLORS` in `launcher.c`.
+- The launcher lists every non-factory app slot with a valid image (`esp_ota_get_partition_description`); names come from `project_name` minus the `ESP32Watch` prefix. Colour, icon and description per known app live in `KNOWN` in `os_apps.c`.
 - Target hardware is Waveshare `ESP32-S3-Touch-AMOLED-2.06` with ESP32-S3R8, AMOLED 410x502 QSPI, FT3168 touch, QMI8658 IMU, PCF85063 RTC, AXP2101 PMU, ES8311 speaker, ES7210 dual-mic ADC, and microSD.
 - Baseline stack is `ESP-IDF 5.5.4 + LVGL 9 + waveshare/esp32_s3_touch_amoled_2_06` BSP. Do not migrate to ESP-IDF 6.x or ESP-Brookesia unless explicitly requested.
 - Shared board services (`imu_service.h`, `watch_buttons.h`, `watch_launcher.h`) come from `watch_board` in https://github.com/Sethyrus/ESP32Watch-core, pinned by tag in `main/idf_component.yml`. Hardware docs live in that repo's `docs/`.
 - Keep `main` small. Add new `main` sources in `main/CMakeLists.txt`, or create ESP-IDF components for reusable code.
 - Durable project config lives in `sdkconfig.defaults`, `partitions.csv`, component manifests and `dependencies.lock`. `sdkconfig`, `build/`, and `managed_components/` are generated/local. `.env` is local (template in `.env.example`).
 - `partitions.csv` is the shared layout for all app repos: same offsets everywhere, and each app's `partitions.csv` is a copy of it. Changing offsets or slots means updating it here, every app copy, `apps.conf` and the README table. `flash_all.sh` warns when an app copy differs.
-- `apps.conf` lists the apps `flash_all.sh` builds and flashes (name, slot, default repo dir; `<NAME>_DIR` in `.env` overrides). Adding an app = a slot + a line there; the app-side checklist lives in the template README.
+- `apps.conf` is the catalogue of apps (name, fixed slot, default repo dir); `APPS` in `.env` picks which go on the watch (empty = all), and a full flash empties the slots of the rest. It lists the apps `flash_all.sh` builds and flashes (name, slot, default repo dir; `<NAME>_DIR` in `.env` overrides). Adding an app = a slot + a line there; the app-side checklist lives in the template README.
 - NVS is shared with every app: init it with `watch_nvs_init()` and only use the `launcher` namespace.
 - Doom owns its WAD choice (`wad/` + `CONFIG_DOOM_EMBED_WAD` in its repo). `flash_all.sh` only flashes Doom's `build/storage.bin` when that build produced it; do not add WAD settings here.
 

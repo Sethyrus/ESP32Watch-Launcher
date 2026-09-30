@@ -1,8 +1,34 @@
 # ESP32Watch-Launcher
 
-Launcher de arranque para la Waveshare **ESP32-S3-Touch-AMOLED-2.06**. Graba en el reloj todos los proyectos ESP32Watch a la vez (Maze, Doom, Fluid) y permite elegir cual abrir, sin recompilar ni reflashear para cambiar de uno a otro.
+El "sistema" del reloj para la Waveshare **ESP32-S3-Touch-AMOLED-2.06**: esfera con la hora, menu con las funciones del reloj, ajustes y una seccion Apps desde la que se abren los demas proyectos ESP32Watch (Maze, Doom, Fluid), grabados todos a la vez, sin recompilar ni reflashear para cambiar de uno a otro.
 
-Stack: `ESP-IDF 5.5.4` + `LVGL 9` + BSP Waveshare + [ESP32Watch-core](https://github.com/Sethyrus/ESP32Watch-core) (`watch_board` >= v0.2.0).
+Stack: `ESP-IDF 5.5.4` + `LVGL 9` + BSP Waveshare + [ESP32Watch-core](https://github.com/Sethyrus/ESP32Watch-core) (`watch_board` >= v0.4.0).
+
+## El reloj
+
+Diseno: fondo negro (en AMOLED el negro no consume), texto blanco calido, un acento turquesa y ambar para bateria baja. Hora en Barlow Condensed, texto en Barlow, iconos de Lucide (fuentes LVGL en `components/launcher/fonts/`, con sus licencias OFL e ISC).
+
+| Pantalla | Contenido |
+| --- | --- |
+| Esfera | Bateria por tramos, fecha, hora grande, barra de segundos, cronometro si esta en marcha y botones a Apps y Ajustes |
+| Menu | Apps, Cronometro, Temporizador y Alarmas (proximamente), Linterna y Ajustes |
+| Apps | Las apps grabadas; abrir una reinicia en ella |
+| Ajustes | Hora y fecha, brillo (5 niveles), apagado de pantalla (10/15/30/60 s), bateria, acerca de, apagar el reloj |
+
+| Entrada | Accion |
+| --- | --- |
+| `BOOT` en la esfera | Abrir el menu (tambien deslizando hacia arriba) |
+| `PWR` en la esfera | Apagar la pantalla |
+| `BOOT` corto | Abrir o aceptar lo marcado con el aro turquesa |
+| `BOOT` mantenido | Pasar el aro al siguiente elemento |
+| `PWR` corto | Volver |
+| Tactil | Todo, con la pantalla encendida |
+
+Sin uso durante el tiempo de Ajustes, la pantalla se oscurece 3 s y se apaga; tocar o pulsar un boton mientras esta oscurecida solo la reactiva. Apagada, **solo la despiertan BOOT o PWR** (el tactil no, para que no se encienda sola) y vuelve a la esfera. En bateria el chip entra en light sleep; con USB conectado se queda despierto con la pantalla apagada, porque el USB-Serial-JTAG no funciona en light sleep. Si el RTC perdio la hora, arranca en "Hora y fecha".
+
+Al arrancar apaga el IMU y el amplificador, que una app puede haber dejado encendidos (`esp_restart()` no los resetea). Ajustes y cronometro se guardan en NVS (namespace `launcher`), asi que el cronometro sigue contando mientras hay una app abierta.
+
+Codigo: `components/launcher/os_ui.c` (pila de pantallas, foco, tarea del sistema: botones, apagado, sueno), una pantalla por fichero (`os_face.c`, `os_menu.c`, `os_apps.c`, `os_settings.c`, `os_tools.c`) y `os_store.c` (NVS).
 
 ## Como funciona
 
@@ -16,15 +42,7 @@ Asi, cualquier reinicio vuelve al launcher: la opcion "Salir" de la app, un cuel
 
 Cambiar de app es un reinicio (~1-2 s), asi que cada app arranca limpia: RAM, PSRAM, tareas, DMA, LVGL y display. Lo que deba persistir va en NVS (compartida, un namespace por app) o en la SD.
 
-Controles del launcher:
-
-| Entrada | Accion |
-| --- | --- |
-| Tocar una app | Abrirla |
-| `PWR` corto | Siguiente app |
-| `BOOT` | Abrir la seleccionada |
-
-Recuerda la ultima app abierta (NVS, namespace `launcher`).
+La seccion Apps recuerda la ultima app abierta.
 
 Salir desde cada app:
 
@@ -68,7 +86,7 @@ idf.py set-target esp32s3   # solo la primera vez
 | Uso | Que hace |
 | --- | --- |
 | `./flash_all.sh` | Compila y graba todo |
-| `./flash_all.sh fluid` | Compila y regraba solo esa app (un nombre de `apps.conf` o `launcher`), sin tocar las demas |
+| `./flash_all.sh fluid` | Compila y regraba solo esa app (un nombre de `apps.conf` o `launcher`), sin tocar las demas; la graba aunque no este en `APPS` |
 | `./flash_all.sh --no-build` | Graba lo ya compilado en cada `build/` |
 
 Si falta el repo de una app, o no compila, `flash_all.sh` (modo completo) deja su slot vacio y el launcher no lo muestra. La regrabacion de una sola app supone que el reloj ya tiene esta tabla (un `./flash_all.sh` completo previo). Si el `partitions.csv` de una app no coincide con el de aqui, el script avisa (la grabacion sigue: el reloj usa la tabla del launcher, pero la app en standalone no).
@@ -78,6 +96,7 @@ Si falta el repo de una app, o no compila, `flash_all.sh` (modo completo) deja s
 | Variable | Defecto | Uso |
 | --- | --- | --- |
 | `WATCH_PORT` | vacio (autodetectar) | Puerto serie, p. ej. `/dev/tty.usbmodem1101` |
+| `APPS` | vacio (todas) | Apps de `apps.conf` que se graban, separadas por espacios, p. ej. `APPS="maze fluid"`. Las que no estan se vacian de su slot en un `./flash_all.sh` completo (el launcher deja de mostrarlas) y, si falta Doom, no se graba su WAD |
 | `<APP>_DIR` (`MAZE_DIR`, `DOOM_DIR`...) | el de `apps.conf` | Repo de cada app, relativo a este o absoluto |
 
 ### WAD de Doom
@@ -91,7 +110,7 @@ El checklist de la app (arranque, "Salir", NVS, tabla) esta en el README de [ESP
 1. Un slot libre de `partitions.csv` (`ota_3` a `ota_6` estan vacios). Si se acaban, hay que redisenar la tabla sin pasar el codigo de los 16 MB, y copiarla a cada app.
 2. Una linea en `apps.conf`: nombre, slot y repo.
 
-El launcher la muestra sola: lista todo slot con una imagen valida. Su color sale de `APP_COLORS` en `components/launcher/launcher.c` (si no esta, usa uno por defecto).
+El launcher la muestra sola: lista todo slot con una imagen valida. Su color, icono y descripcion salen de `KNOWN` en `components/launcher/os_apps.c` (si no esta, un color neutro, su inicial y su version).
 
 ## Documentacion
 

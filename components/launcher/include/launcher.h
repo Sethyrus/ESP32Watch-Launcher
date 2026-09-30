@@ -2,5 +2,6 @@
 
 #include "esp_err.h"
 
-// Lists the apps found in the OTA slots and boots the chosen one (see README).
+// Starts the watch OS: face, menu, watch tools, settings and the Apps list, which
+// boots the chosen app from its OTA slot (see README).
 esp_err_t launcher_start(void);
