@@ -2,7 +2,7 @@
 
 El "sistema" del reloj para la Waveshare **ESP32-S3-Touch-AMOLED-2.06**: esfera con la hora, menu con las funciones del reloj, ajustes y una seccion Apps desde la que se abren los demas proyectos ESP32Watch (Maze, Doom, Fluid, Recorder), grabados todos a la vez, sin recompilar ni reflashear para cambiar de uno a otro.
 
-Stack: `ESP-IDF 5.5.4` + `LVGL 9` + BSP Waveshare + [ESP32Watch-core](https://github.com/Sethyrus/ESP32Watch-core) (`watch_board` >= v0.4.0).
+Stack: `ESP-IDF 5.5.4` + `LVGL 9` + BSP Waveshare + [ESP32Watch-core](https://github.com/Sethyrus/ESP32Watch-core) (`watch_board` v0.5.1).
 
 ## El reloj
 
@@ -78,7 +78,7 @@ Tabla comun, con los mismos offsets en todos los repos (`partitions.csv` de cada
 | `ota_4` a `ota_6` | `0x9a0000` a `0xda0000` | 2 MB c/u | Libres (apps futuras) |
 | `storage` | `0x1000000` | 16 MB | WAD de Doom embebido (FAT, solo lectura); sin uso si Doom lo lee de la SD |
 
-La flash es de 32 MB y esta configurada asi. Todo el codigo (launcher y apps) queda por debajo de los 16 MB porque ejecutar codigo por encima es una funcion experimental de ESP-IDF; por encima solo va `storage`, que se lee por la API de particiones (validado en placa: escritura, lectura y montaje de un FAT). Cada app ocupa hoy ~0,7 MB de sus 2 MB. Cambiar la tabla implica actualizar sus copias en cada app y en `apps.conf`.
+La flash es de 32 MB y esta configurada asi. Todo el codigo (launcher y apps) queda por debajo de los 16 MB porque ejecutar codigo por encima es una funcion experimental de ESP-IDF; por encima solo va `storage`, que se lee por la API de particiones (validado en placa: escritura, lectura y montaje de un FAT). Cada app ocupa hoy entre 0,7 y 0,9 MB de sus 2 MB, y el launcher ~0,9 MB de 1,5 MB. Cambiar la tabla implica actualizar sus copias en cada app y en `apps.conf`.
 
 ## Grabar todo
 

@@ -9,7 +9,7 @@
 # APPS="maze fluid" in .env limits a full flash to those apps (the others' slots are
 # emptied, so the launcher hides them). Naming one app flashes it regardless.
 #
-# Needs the ESP-IDF 5.5.4 environment (source "$HOME/.espressif/v5.5.4/esp-idf/export.sh").
+# Needs the ESP-IDF 5.5.4 environment (source "$HOME/.espressif/tools/activate_idf_v5.5.4.sh").
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
@@ -67,7 +67,7 @@ TABLE="$ROOT/partitions.csv"
 # idf.py is a shell function in some ESP-IDF activation scripts, so it is not
 # inherited by this script: call the tool through IDF_PATH instead.
 if [ -z "${IDF_PATH:-}" ] || [ ! -f "$IDF_PATH/tools/idf.py" ]; then
-    echo "ESP-IDF not active: source \"\$HOME/.espressif/v5.5.4/esp-idf/export.sh\" first" >&2
+    echo "ESP-IDF not active: source \"\$HOME/.espressif/tools/activate_idf_v5.5.4.sh\" first" >&2
     exit 1
 fi
 idf() { python "$IDF_PATH/tools/idf.py" "$@"; }
