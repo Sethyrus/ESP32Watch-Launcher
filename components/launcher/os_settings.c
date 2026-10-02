@@ -1,13 +1,19 @@
 // Settings: time and date, brightness, screen timeout, battery, USB disk, about, power off.
 #include <stdio.h>
+#include <sys/time.h>
 #include <time.h>
 
 #include "esp_app_desc.h"
+#include "esp_log.h"
+#include "esp_system.h"
+#include "os_alerts.h"
 #include "os_screens.h"
 #include "os_store.h"
 #include "watch_display.h"
 #include "watch_power.h"
 #include "watch_rtc.h"
+
+static const char *TAG = "os_settings";
 
 static const int BRIGHTNESS_STEPS[] = {20, 40, 60, 80, 100};
 static const int TIMEOUT_STEPS[] = {10, 15, 30, 60};
@@ -219,8 +225,17 @@ static void time_save(lv_event_t *e)
     tm.tm_mday = (int)lv_roller_get_selected(s_time.day) + 1;
     tm.tm_mon = (int)lv_roller_get_selected(s_time.month);
     tm.tm_year = 2024 + (int)lv_roller_get_selected(s_time.year) - 1900;
-    watch_rtc_set_datetime(&tm);
-    os_alarms_reschedule();
+    struct timeval before;
+    struct timeval after;
+    gettimeofday(&before, NULL);
+    const esp_err_t err = watch_rtc_set_datetime(&tm); // sets the system clock even if the RTC fails
+    gettimeofday(&after, NULL);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "RTC not written (%s): the time is lost on the next reboot", esp_err_to_name(err));
+    }
+    const int64_t delta_ms = ((int64_t)after.tv_sec - before.tv_sec) * 1000 + (after.tv_usec - before.tv_usec) / 1000;
+    os_alerts_clock_changed(delta_ms);
+    os_stopwatch_clock_changed(delta_ms);
     os_back();
 }
 
@@ -312,13 +327,38 @@ const os_screen_t os_battery_screen = {
 
 // ---------- Acerca de ----------
 
+static const char *reset_reason_name(uint8_t reason)
+{
+    switch (reason) {
+    case ESP_RST_PANIC:
+        return "Error";
+    case ESP_RST_BROWNOUT:
+        return "Tensión baja";
+    default:
+        return "Watchdog";
+    }
+}
+
 static void about_create(lv_obj_t *root)
 {
     os_title(root, "Acerca de");
     const esp_app_desc_t *desc = esp_app_get_description();
+    char resets[160] = "Sin reinicios inesperados";
+    const os_reset_t *last = os_reset_last();
+    if (last != NULL) {
+        char when[48] = "";
+        if (last->time != 0) {
+            const time_t t = last->time;
+            struct tm tm;
+            localtime_r(&t, &tm);
+            snprintf(when, sizeof(when), " %d/%d %02d:%02d", tm.tm_mday, tm.tm_mon + 1, tm.tm_hour, tm.tm_min);
+        }
+        snprintf(resets, sizeof(resets), "Reinicios inesperados: %lu\nÚltimo%s\n%s · %s", (unsigned long)os_resets_count(),
+                 when, reset_reason_name(last->reason), last->where[0] != '\0' ? os_apps_name(last->where) : "Sistema");
+    }
     lv_obj_t *text = os_label(root, &font_barlow_18, OS_TEXT_2, "");
-    lv_label_set_text_fmt(text, "ESP32Watch OS\nVersión %s\n\n%d apps instaladas\nESP-IDF %s", desc->version,
-                          os_apps_count(), desc->idf_ver);
+    lv_label_set_text_fmt(text, "ESP32Watch OS\nVersión %s\n\n%d apps instaladas\nESP-IDF %s\n\n%s", desc->version,
+                          os_apps_count(), desc->idf_ver, resets);
     lv_obj_set_style_text_align(text, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_set_style_text_line_space(text, 6, 0);
     lv_obj_center(text);

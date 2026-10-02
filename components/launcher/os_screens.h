@@ -25,6 +25,7 @@ void os_usb_restore_port(void);
 // Apps in the OTA slots (os_apps.c).
 void os_apps_scan(void);
 int os_apps_count(void);
+const char *os_apps_name(const char *label); // app name in that slot, or the label
 
 // Title shown by os_soon_screen.
 void os_soon_set_title(const char *title);

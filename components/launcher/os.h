@@ -80,7 +80,7 @@ void os_home(void); // back to the watch face, dropping the stack
 void os_request_sleep(void); // turn the screen off as soon as the system task can
 
 // Starts the system task (buttons, screen timeout, sleep, ticks) on the face.
-void os_start(const os_screen_t *face);
+esp_err_t os_start(const os_screen_t *face);
 
 // ---- Button focus ----
 // Focusable objects of the current screen, in order: BOOT long press moves the focus
@@ -91,6 +91,10 @@ int os_focus_get(void);
 
 // ---- Widgets ----
 lv_obj_t *os_label(lv_obj_t *parent, const lv_font_t *font, uint32_t color, const char *text);
+// Sets the text only if it changed: lv_label_set_text redraws even when it is the same,
+// and the per-second ticks would redraw big glyphs that did not change.
+void os_label_update(lv_obj_t *label, const char *text);
+void os_label_updatef(lv_obj_t *label, const char *fmt, ...) __attribute__((format(printf, 2, 3)));
 // Title row "<title>  HH:MM" at the top; returns the row.
 lv_obj_t *os_title(lv_obj_t *root, const char *title);
 // Bottom hint line ("BOOT abrir · PWR volver").

@@ -192,6 +192,15 @@ void os_timer_resume(void)
     save_timer();
 }
 
+void os_alerts_clock_changed(int64_t delta_ms)
+{
+    if (s_timer.state == OS_TIMER_RUNNING && delta_ms != 0) {
+        s_timer.end_ms += delta_ms; // keeps the time left
+        save_timer();
+    }
+    os_alarms_reschedule();
+}
+
 void os_timer_reset(void)
 {
     s_timer.state = OS_TIMER_IDLE;
@@ -313,8 +322,10 @@ static void output_task(void *arg)
 
 void os_alert_output_start(void)
 {
-    if (s_out_task == NULL) {
-        xTaskCreate(output_task, "os_alert", 4096, NULL, 2, &s_out_task);
+    if (s_out_task == NULL && xTaskCreate(output_task, "os_alert", 4096, NULL, 2, &s_out_task) != pdPASS) {
+        s_out_task = NULL;
+        ESP_LOGE(TAG, "Alert task not created: no sound"); // the alert still shows
+        return;
     }
     s_out_active = true;
     xTaskNotifyGive(s_out_task);

@@ -1,5 +1,6 @@
 #include "os.h"
 
+#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -274,6 +275,7 @@ static void system_task(void *arg)
             }
             lv_display_trigger_activity(NULL);
             os_alert_present(&alert);
+            s_os.sleep_requested = false; // a PWR press in this same pass must not hide it
         }
         const os_screen_t *screen = s_os.stack[s_os.depth - 1];
         if (now - last_tick >= 1000000) {
@@ -314,11 +316,15 @@ static void system_task(void *arg)
     }
 }
 
-void os_start(const os_screen_t *face)
+esp_err_t os_start(const os_screen_t *face)
 {
     s_os.depth = 0;
     os_push(face);
-    xTaskCreate(system_task, "os_system", 6144, NULL, 3, NULL);
+    if (xTaskCreate(system_task, "os_system", 6144, NULL, 3, NULL) != pdPASS) {
+        ESP_LOGE(TAG, "System task not created: no buttons, timeout or sleep");
+        return ESP_ERR_NO_MEM;
+    }
+    return ESP_OK;
 }
 
 // ---------- widgets ----------
@@ -332,12 +338,29 @@ lv_obj_t *os_label(lv_obj_t *parent, const lv_font_t *font, uint32_t color, cons
     return label;
 }
 
+void os_label_update(lv_obj_t *label, const char *text)
+{
+    if (strcmp(lv_label_get_text(label), text) != 0) {
+        lv_label_set_text(label, text);
+    }
+}
+
+void os_label_updatef(lv_obj_t *label, const char *fmt, ...)
+{
+    char text[64];
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(text, sizeof(text), fmt, args);
+    va_end(args);
+    os_label_update(label, text);
+}
+
 static void title_clock_update(void)
 {
     if (s_os.title_clock != NULL) {
         struct tm tm;
         os_now(&tm);
-        lv_label_set_text_fmt(s_os.title_clock, "%02d:%02d", tm.tm_hour, tm.tm_min);
+        os_label_updatef(s_os.title_clock, "%02d:%02d", tm.tm_hour, tm.tm_min);
     }
 }
 
@@ -500,6 +523,11 @@ void os_battery_icon_set(lv_obj_t *icon, const watch_battery_t *b)
     const uint32_t frame = color == OS_TEXT ? OS_MUTED : color;
     const int pct = b->percent < 0 ? 0 : b->percent;
     const int filled = pct == 0 ? 0 : (pct + 19) / 20;
+    const uintptr_t shown = ((uintptr_t)color << 4 | (uintptr_t)filled) + 1; // 0 = never set
+    if ((uintptr_t)lv_obj_get_user_data(icon) == shown) {
+        return;
+    }
+    lv_obj_set_user_data(icon, (void *)shown);
     lv_obj_set_style_border_color(body, lv_color_hex(frame), 0);
     lv_obj_set_style_bg_color(nub, lv_color_hex(frame), 0);
     for (int i = 0; i < 5; i++) {

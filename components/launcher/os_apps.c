@@ -84,14 +84,24 @@ int os_apps_count(void)
     return s_count;
 }
 
+const char *os_apps_name(const char *label)
+{
+    for (int i = 0; i < s_count; i++) {
+        if (strcmp(s_apps[i].partition->label, label) == 0) {
+            return s_apps[i].name;
+        }
+    }
+    return label;
+}
+
 // One LVGL cycle after the click, so "Abriendo..." is on screen before the reboot.
 static void launch_timer_cb(lv_timer_t *timer)
 {
     const app_t *app = lv_timer_get_user_data(timer);
-    os_set_last_app(app->partition->label);
     // Verifies the image first; the app points the next boot back at the launcher.
     esp_err_t err = esp_ota_set_boot_partition(app->partition);
     if (err == ESP_OK) {
+        os_set_last_app(app->partition->label); // from here, a crash is blamed on the app
         ESP_LOGI(TAG, "Booting %s from %s", app->name, app->partition->label);
         esp_restart();
     }

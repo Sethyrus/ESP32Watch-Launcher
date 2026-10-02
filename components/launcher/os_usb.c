@@ -24,7 +24,8 @@ static struct {
     lv_obj_t *icon;
     lv_obj_t *status;
     lv_obj_t *note;
-    lv_timer_t *timer;
+    lv_timer_t *timer;       // 300 ms poll of the host connection
+    lv_timer_t *start_timer; // pending one-shot start_cb
     bool shown_mounted;
 } s_usb;
 
@@ -122,6 +123,7 @@ static void poll_cb(lv_timer_t *t)
 // One LVGL cycle after the screen shows, so "Preparando..." is visible while it starts.
 static void start_cb(lv_timer_t *t)
 {
+    s_usb.start_timer = NULL; // one-shot: LVGL deletes it after this call
     if (usb_start() == ESP_OK) {
         show_state(false);
         s_usb.timer = lv_timer_create(poll_cb, 300, NULL);
@@ -190,12 +192,17 @@ static void usb_create(lv_obj_t *root)
         show_state(tud_mounted());
         s_usb.timer = lv_timer_create(poll_cb, 300, NULL);
     } else {
-        lv_timer_set_repeat_count(lv_timer_create(start_cb, 30, NULL), 1);
+        s_usb.start_timer = lv_timer_create(start_cb, 30, NULL);
+        lv_timer_set_repeat_count(s_usb.start_timer, 1);
     }
 }
 
 static void usb_destroy(void)
 {
+    if (s_usb.start_timer != NULL) { // left (or an alert took over) before USB started
+        lv_timer_delete(s_usb.start_timer);
+        s_usb.start_timer = NULL;
+    }
     if (s_usb.timer != NULL) {
         lv_timer_delete(s_usb.timer);
         s_usb.timer = NULL;

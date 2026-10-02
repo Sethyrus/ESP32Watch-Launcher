@@ -46,6 +46,9 @@ void os_timer_start(int seconds);
 void os_timer_pause(void);
 void os_timer_resume(void);
 void os_timer_reset(void);
+// The wall clock was stepped by delta_ms (time set by hand): a running timer keeps the
+// time it had left and the alarms are rescheduled for the new time.
+void os_alerts_clock_changed(int64_t delta_ms);
 
 // ---- Firing ----
 // True once per due timer/alarm, after updating their state. LVGL lock not needed.

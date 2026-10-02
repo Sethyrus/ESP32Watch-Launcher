@@ -144,10 +144,10 @@ static void face_tick(void)
 {
     struct tm tm;
     os_now(&tm);
-    lv_label_set_text_fmt(s_face.hours, "%02d", tm.tm_hour);
-    lv_label_set_text_fmt(s_face.minutes, "%02d", tm.tm_min);
+    os_label_updatef(s_face.hours, "%02d", tm.tm_hour);
+    os_label_updatef(s_face.minutes, "%02d", tm.tm_min);
     lv_bar_set_value(s_face.seconds, tm.tm_sec > 59 ? 59 : tm.tm_sec, LV_ANIM_OFF);
-    lv_label_set_text_fmt(s_face.date, "%s %d %s", os_weekday_name(tm.tm_wday), tm.tm_mday, os_month_short(tm.tm_mon));
+    os_label_updatef(s_face.date, "%s %d %s", os_weekday_name(tm.tm_wday), tm.tm_mday, os_month_short(tm.tm_mon));
 
     const watch_battery_t *b = os_battery();
     os_battery_icon_set(s_face.battery, b);
@@ -157,16 +157,16 @@ static void face_tick(void)
         lv_obj_add_flag(s_face.charging, LV_OBJ_FLAG_HIDDEN);
     }
     if (b->percent >= 0) {
-        lv_label_set_text_fmt(s_face.pct, "%d %%", b->percent);
+        os_label_updatef(s_face.pct, "%d %%", b->percent);
     } else {
-        lv_label_set_text(s_face.pct, "USB");
+        os_label_update(s_face.pct, "USB");
     }
 
     const int64_t sw = os_stopwatch_elapsed_ms();
     if (os_stopwatch_running() || sw > 0) {
         char text[16];
         format_elapsed(text, sizeof(text), sw);
-        lv_label_set_text(s_face.stopwatch_text, text);
+        os_label_update(s_face.stopwatch_text, text);
         lv_obj_remove_flag(s_face.stopwatch_chip, LV_OBJ_FLAG_HIDDEN);
     } else {
         lv_obj_add_flag(s_face.stopwatch_chip, LV_OBJ_FLAG_HIDDEN);
@@ -175,7 +175,7 @@ static void face_tick(void)
     if (os_timer_state() != OS_TIMER_IDLE) {
         char text[16];
         format_elapsed(text, sizeof(text), (os_timer_remaining_ms() + 999) / 1000 * 1000);
-        lv_label_set_text(s_face.timer_text, text);
+        os_label_update(s_face.timer_text, text);
         lv_obj_remove_flag(s_face.timer_chip, LV_OBJ_FLAG_HIDDEN);
     } else {
         lv_obj_add_flag(s_face.timer_chip, LV_OBJ_FLAG_HIDDEN);
@@ -184,7 +184,7 @@ static void face_tick(void)
     int hour;
     int minute;
     if (os_alarm_next(&hour, &minute)) {
-        lv_label_set_text_fmt(s_face.alarm_text, "%02d:%02d", hour, minute);
+        os_label_updatef(s_face.alarm_text, "%02d:%02d", hour, minute);
         lv_obj_remove_flag(s_face.alarm_chip, LV_OBJ_FLAG_HIDDEN);
     } else {
         lv_obj_add_flag(s_face.alarm_chip, LV_OBJ_FLAG_HIDDEN);

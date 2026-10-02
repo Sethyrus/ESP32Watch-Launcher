@@ -2,8 +2,10 @@
 
 #include <string.h>
 #include <sys/time.h>
+#include <time.h>
 
 #include "esp_log.h"
+#include "esp_system.h"
 #include "nvs.h"
 
 #define NS "launcher"
@@ -17,6 +19,9 @@ static struct {
     int64_t acc_ms;   // accumulated before the last start
 } s_sw;
 static char s_last_app[17];
+static bool s_in_app; // the last boot went into an app and has not come back yet
+static os_reset_t s_last_reset;
+static uint32_t s_reset_count;
 
 static int64_t now_ms(void)
 {
@@ -47,6 +52,14 @@ void os_store_load(void)
     size_t len = sizeof(s_last_app);
     if (nvs_get_str(h, "last", s_last_app, &len) != ESP_OK) {
         s_last_app[0] = '\0';
+    }
+    if (nvs_get_u8(h, "in_app", &u8) == ESP_OK) {
+        s_in_app = u8 != 0;
+    }
+    nvs_get_u32(h, "rst_n", &s_reset_count);
+    len = sizeof(s_last_reset);
+    if (nvs_get_blob(h, "rst_last", &s_last_reset, &len) != ESP_OK || len != sizeof(s_last_reset)) {
+        memset(&s_last_reset, 0, sizeof(s_last_reset));
     }
     nvs_close(h);
 }
@@ -113,6 +126,14 @@ void os_stopwatch_toggle(void)
     commit(write_stopwatch);
 }
 
+void os_stopwatch_clock_changed(int64_t delta_ms)
+{
+    if (s_sw.running && delta_ms != 0) {
+        s_sw.start_ms += delta_ms;
+        commit(write_stopwatch);
+    }
+}
+
 void os_stopwatch_reset(void)
 {
     s_sw.running = false;
@@ -129,10 +150,52 @@ const char *os_last_app(void)
 static void write_last(nvs_handle_t h)
 {
     nvs_set_str(h, "last", s_last_app);
+    nvs_set_u8(h, "in_app", s_in_app);
 }
 
 void os_set_last_app(const char *label)
 {
     strlcpy(s_last_app, label, sizeof(s_last_app));
+    s_in_app = true;
     commit(write_last);
+}
+
+// ---------- unexpected resets ----------
+
+static void write_resets(nvs_handle_t h)
+{
+    nvs_set_u8(h, "in_app", s_in_app);
+    nvs_set_u32(h, "rst_n", s_reset_count);
+    nvs_set_blob(h, "rst_last", &s_last_reset, sizeof(s_last_reset));
+}
+
+void os_resets_check(void)
+{
+    // The reset reason survives the switch from an app to this firmware: the app's
+    // panic or watchdog shows up here.
+    const esp_reset_reason_t reason = esp_reset_reason();
+    const bool unexpected = reason == ESP_RST_PANIC || reason == ESP_RST_INT_WDT || reason == ESP_RST_TASK_WDT ||
+                            reason == ESP_RST_WDT || reason == ESP_RST_BROWNOUT;
+    if (!unexpected && !s_in_app) {
+        return;
+    }
+    if (unexpected) {
+        s_last_reset.time = (uint32_t)time(NULL);
+        s_last_reset.reason = (uint8_t)reason;
+        strlcpy(s_last_reset.where, s_in_app ? s_last_app : "", sizeof(s_last_reset.where));
+        s_reset_count++;
+        ESP_LOGW(TAG, "Unexpected reset (reason %d) in %s", reason, s_in_app ? s_last_app : "the launcher");
+    }
+    s_in_app = false;
+    commit(write_resets);
+}
+
+uint32_t os_resets_count(void)
+{
+    return s_reset_count;
+}
+
+const os_reset_t *os_reset_last(void)
+{
+    return s_reset_count > 0 ? &s_last_reset : NULL;
 }

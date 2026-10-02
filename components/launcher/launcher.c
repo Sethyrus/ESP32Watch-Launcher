@@ -47,16 +47,20 @@ esp_err_t launcher_start(void)
     if ((err = watch_rtc_init(false)) != ESP_OK) {
         ESP_LOGW(TAG, "RTC unavailable: %s", esp_err_to_name(err));
     }
+    os_resets_check(); // after the RTC, so a crash gets its time
     os_apps_scan();
 
     if (!bsp_display_lock(0)) {
         return ESP_ERR_TIMEOUT;
     }
-    os_start(&os_face_screen);
-    if (watch_rtc_time_was_lost()) {
+    err = os_start(&os_face_screen);
+    if (err == ESP_OK && watch_rtc_time_was_lost()) {
         os_push(&os_time_screen); // the RTC lost power: ask for the time first
     }
     bsp_display_unlock();
+    if (err != ESP_OK) {
+        return err;
+    }
 
     ESP_LOGI(TAG, "Watch OS ready, %d app(s)", os_apps_count());
     return ESP_OK;

@@ -32,7 +32,9 @@ Temporizador y alarmas guardan en NVS el instante absoluto en que suenan, asi qu
 
 **Conectar al ordenador** (Ajustes): la microSD aparece como disco USB en el ordenador (TinyUSB, clase de almacenamiento), con todo lo que tenga: grabaciones de la Recorder, partidas de Doom... El chip tiene un solo USB, que normalmente usa la consola (USB-Serial-JTAG); mientras dura, no hay consola ni grabacion de firmware por USB, y la pantalla no se apaga (dormir cortaria la conexion). Salir (boton, BOOT o PWR) reinicia el reloj para devolver el puerto a la consola: hay que expulsar el disco antes en el ordenador. Si una alarma vence con este modo activo, la pantalla de alarma apagaria la pantalla y cortaria la conexion (sin probar): no uses el modo USB con una alarma inminente. Codigo en `components/launcher/os_usb.c`.
 
-Al arrancar apaga el IMU y el amplificador, que una app puede haber dejado encendidos (`esp_restart()` no los resetea). Ajustes y cronometro se guardan en NVS (namespace `launcher`), asi que el cronometro sigue contando mientras hay una app abierta.
+Al arrancar apaga el IMU y el amplificador, que una app puede haber dejado encendidos (`esp_restart()` no los resetea). Ajustes y cronometro se guardan en NVS (namespace `launcher`), asi que el cronometro sigue contando mientras hay una app abierta. Cambiar la hora a mano no altera un temporizador ni un cronometro en marcha.
+
+Reinicios inesperados: si el reloj se reinicia por un error (panic), un watchdog o tension baja, en una app o en el propio launcher, el siguiente arranque del launcher lo apunta en NVS (cuantos, cuando, motivo y en que app; `esp_reset_reason()` sobrevive al cambio de firmware). Se ve en Ajustes > Acerca de. Con bateria no hay consola, asi que es la unica pista de un cuelgue.
 
 Codigo: `components/launcher/os_ui.c` (pila de pantallas, foco, tarea del sistema: botones, apagado, sueno), una pantalla por fichero (`os_face.c`, `os_menu.c`, `os_apps.c`, `os_settings.c`, `os_tools.c`, `os_timer.c`, `os_alarms.c`, `os_usb.c`) y `os_alerts.c` (modelo, NVS y sonido del temporizador y las alarmas) y `os_store.c` (NVS).
 
